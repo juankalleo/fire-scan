@@ -1,0 +1,39 @@
+{
+  "package": {
+    "productName": "FireScan",
+    "version": "0.1.0"
+  },
+  "build": {
+    "beforeBuildCommand": "npm run ui:build",
+    "beforeDevCommand": "npm run dev --prefix ../src-ui",
+    "devPath": "http://localhost:5173",
+    "distDir": "../src-ui/dist"
+  },
+  "tauri": {
+    "allowlist": {
+      "dialog": { "all": true }
+    },
+    "windows": [
+      {
+        "fullscreen": false,
+        "height": 800,
+        "resizable": true,
+        "title": "FireScan",
+        "width": 1200,
+        "minHeight": 600,
+        "minWidth": 800
+      }
+    ],
+    "security": {
+      "csp": null
+    },
+    "bundle": {
+      "active": true,
+      "identifier": "com.firescan.app",
+      "icon": [
+        "icons/icon.ico",
+        "icons/icon.png"
+      ]
+    }
+  }
+}

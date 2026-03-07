@@ -1,0 +1,186 @@
+[
+  {
+    "id": "niadd",
+    "name": "Niadd",
+    "url": "https://br.niadd.com",
+    "language": "Português",
+    "region": "BR",
+    "enabled": true,
+    "priority": 1
+  },
+  {
+    "id": "mangalivre",
+    "name": "Manga Livre",
+    "url": "https://mangalivre.tv",
+    "language": "Português",
+    "region": "BR",
+    "enabled": true,
+    "priority": 2,
+    "description": "Acervo enorme de mangá e manhwa em português"
+  },
+  {
+    "id": "leituramanga",
+    "name": "Leitura Manga",
+    "url": "https://leituramanga.net",
+    "language": "Português",
+    "region": "BR",
+    "enabled": true,
+    "priority": 3,
+    "description": "Grande catálogo atualizado"
+  },
+  {
+    "id": "mangabr",
+    "name": "MangaBR",
+    "url": "https://www.mangabr.net",
+    "language": "Português",
+    "region": "BR",
+    "enabled": true,
+    "priority": 4
+  },
+  {
+    "id": "nexusscan",
+    "name": "Nexus Scan",
+    "url": "https://nexusscan.site",
+    "language": "Português",
+    "region": "BR",
+    "enabled": true,
+    "priority": 5,
+    "description": "Scan brasileira ativa"
+  },
+  {
+    "id": "unionmangas",
+    "name": "Union Mangás",
+    "url": "https://unionmangasbr.org",
+    "language": "Português",
+    "region": "BR",
+    "enabled": true,
+    "priority": 6
+  },
+  {
+    "id": "sakuramangas",
+    "name": "Sakura Mangás",
+    "url": "https://sakuramangas.org",
+    "language": "Português",
+    "region": "BR",
+    "enabled": false,
+    "priority": 7
+  },
+  {
+    "id": "slimeread",
+    "name": "SlimeRead",
+    "url": "https://slimeread.com",
+    "language": "Português",
+    "region": "BR",
+    "enabled": false,
+    "priority": 8
+  },
+  {
+    "id": "diskusscan",
+    "name": "Diskus Scan",
+    "url": "https://diskusscan.com",
+    "language": "Português",
+    "region": "BR",
+    "enabled": false,
+    "priority": 9
+  },
+  {
+    "id": "asuratoon",
+    "name": "Asura Toon",
+    "url": "https://asuratoon.com",
+    "language": "Multilíngue",
+    "region": "GLOBAL",
+    "enabled": false,
+    "priority": 10
+  },
+  {
+    "id": "mangadex",
+    "name": "MangaDex",
+    "url": "https://mangadex.org",
+    "language": "Multilíngue",
+    "region": "GLOBAL",
+    "enabled": true,
+    "priority": 11,
+    "description": "Plataforma global com várias traduções"
+  },
+  {
+    "id": "comick",
+    "name": "Comick",
+    "url": "https://comick.io",
+    "language": "Multilíngue",
+    "region": "GLOBAL",
+    "enabled": false,
+    "priority": 12
+  },
+  {
+    "id": "mangakakalot",
+    "name": "Mangakakalot",
+    "url": "https://mangakakalot.com",
+    "language": "Multilíngue",
+    "region": "GLOBAL",
+    "enabled": false,
+    "priority": 13
+  },
+  {
+    "id": "mangahere",
+    "name": "Mangahere",
+    "url": "https://www.mangahere.cc",
+    "language": "Multilíngue",
+    "region": "GLOBAL",
+    "enabled": false,
+    "priority": 14
+  },
+  {
+    "id": "mangafire",
+    "name": "MangaFire",
+    "url": "https://mangafire.to",
+    "language": "Multilíngue",
+    "region": "GLOBAL",
+    "enabled": false,
+    "priority": 15
+  },
+  {
+    "id": "mangaread",
+    "name": "MangaRead",
+    "url": "https://mangaread.org",
+    "language": "Multilíngue",
+    "region": "GLOBAL",
+    "enabled": false,
+    "priority": 16
+  },
+  {
+    "id": "bato",
+    "name": "Bato.to",
+    "url": "https://bato.to",
+    "language": "Multilíngue",
+    "region": "GLOBAL",
+    "enabled": false,
+    "priority": 17
+  },
+  {
+    "id": "manganelo",
+    "name": "Manganelo",
+    "url": "https://manganelo.com",
+    "language": "Multilíngue",
+    "region": "GLOBAL",
+    "enabled": false,
+    "priority": 18
+  },
+  {
+    "id": "webtoonxyz",
+    "name": "Webtoon XYZ",
+    "url": "https://www.webtoon.xyz",
+    "language": "Multilíngue",
+    "region": "GLOBAL",
+    "enabled": false,
+    "priority": 19
+  },
+  {
+    "id": "manhuaplus",
+    "name": "ManhuaPlus",
+    "url": "https://manhuaplus.com",
+    "language": "Multilíngue",
+    "region": "GLOBAL",
+    "enabled": false,
+    "priority": 20
+  }
+]

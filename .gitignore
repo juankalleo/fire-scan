@@ -1,0 +1,34 @@
+## Node and build
+node_modules/
+dist/
+target/
+*.whl
+*.egg-info/
+build/
+
+## OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+## IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.vim/
+*.iml
+
+## Environment
+.env
+.env.local
+.env.*.local
+
+## Tauri
+src-tauri/target/
+src-ui/dist/
+
+## Cache
+.cache/
+*.cache

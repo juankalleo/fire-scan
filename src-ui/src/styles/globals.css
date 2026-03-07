@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-brand-primary: hsl(214 100% 66%);
+    --color-dark-bg: hsl(240 13% 12%);
+    --color-dark-surface: hsl(240 13% 18%);
+    --color-dark-surface-alt: hsl(240 13% 24%);
+    --color-dark-text: hsl(226 64% 88%);
+    --color-dark-text-secondary: hsl(228 41% 66%);
+    --color-dark-border: hsl(237 13% 28%);
+  }
+
+  * {
+    @apply selection:bg-brand-primary/20 selection:text-dark-text;
+  }
+
+  body {
+    @apply text-dark-text antialiased;
+    min-height: 100vh;
+    background:
+      radial-gradient(1200px 600px at 85% -10%, rgba(58, 123, 255, 0.2), transparent 55%),
+      radial-gradient(900px 500px at -10% 40%, rgba(66, 211, 255, 0.11), transparent 55%),
+      linear-gradient(180deg, #0a1020 0%, #10182c 42%, #0d1525 100%);
+    font-family: Arial, 'Segoe UI', sans-serif;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-lg bg-dark-surface/90 border border-dark-border transition-all duration-200;
+    backdrop-filter: blur(6px);
+  }
+
+  .card-hover {
+    @apply hover:border-brand-primary hover:shadow-lg;
+  }
+
+  .btn-primary {
+    @apply px-4 py-2 rounded-lg bg-brand-primary text-dark-bg font-semibold transition-all hover:brightness-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 rounded-lg bg-dark-surface border border-dark-border text-dark-text font-semibold transition-all hover:bg-dark-surface-alt active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply px-3 py-2 rounded-lg text-dark-text transition-all hover:bg-dark-surface-alt active:scale-95;
+  }
+
+  .sidebar-item {
+    @apply flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all duration-200 text-dark-text-secondary/90 hover:text-dark-text hover:bg-dark-surface-alt/65 cursor-pointer;
+  }
+
+  .sidebar-item.active {
+    @apply bg-dark-surface-alt/90 border border-brand-primary/25 text-dark-text shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_8px_24px_rgba(58,123,255,0.16)];
+  }
+}
+
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.library-card-enter {
+  animation: card-enter 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Smooth scrollbar */
+::-webkit-scrollbar {
+  @apply w-2 h-2;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-dark-surface;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-dark-border rounded-full hover:bg-dark-text-secondary;
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-color: var(--color-dark-border) var(--color-dark-surface);
+  scrollbar-width: thin;
+}
