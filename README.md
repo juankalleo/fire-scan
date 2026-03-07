@@ -15,10 +15,7 @@ Hoje, o projeto entrega uma interface gráfica para:
 
 ## Imagem do projeto
 
-
-```markdown
 ![Imagem do projeto](./docs/imagens/firescan-home.png)
-```
 
 Se quiser, pode trocar o caminho da imagem para qualquer pasta do repositório.
 
@@ -39,7 +36,7 @@ Este é o fluxo principal para quem só quer usar o app.
 2. Clone o repositório:
 
 ```bash
-git clone <https://github.com/juankalleo/fire-scan.git>
+git clone https://github.com/juankalleo/fire-scan.git
 cd FireScan
 ```
 
