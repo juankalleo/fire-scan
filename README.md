@@ -17,7 +17,7 @@ Hoje, o projeto entrega uma interface gráfica para:
 
 ![Imagem do projeto](./docs/imagens/firescan-home.png)
 
-Se quiser, pode trocar o caminho da imagem para qualquer pasta do repositório.
+
 
 ## Como executar o projeto (modo usuário)
 
