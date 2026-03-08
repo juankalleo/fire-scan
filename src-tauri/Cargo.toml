@@ -2,6 +2,7 @@
 name = "firescan"
 version = "0.1.0"
 edition = "2021"
+default-run = "firescan"
 
 [build-dependencies]
 tauri-build = { version = "1.5", features = [] }
