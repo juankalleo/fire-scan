@@ -40,7 +40,13 @@ git clone https://github.com/juankalleo/fire-scan.git
 cd FireScan
 ```
 
-3. Execute o aplicativo:
+3. Instale como aplicativo do Windows (recomendado):
+
+- Dê duplo clique em `FireScan-instalador.msi`
+- Siga o assistente de instalação
+- Depois abra o FireScan pelo menu Iniciar
+
+4. Ou, se preferir usar sem instalar:
 
 - Dê duplo clique em `FireScan.exe`
 ou
