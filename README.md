@@ -4,7 +4,7 @@ Aplicação desktop para buscar, baixar, organizar e ler mangás/manhwas localme
 
 ## Sobre o projeto
 
-O FireScan surgiu com foco em automação de coleta (scrapping de dados) e organização de conteúdo de mangás, com prioridade em utilizar fontes diversas em um aplicativo, com downloads locais.
+O FireScan surgiu com foco em automação de coleta (scrapping de dados) e organização de conteúdo de mangás, com prioridade em utilizar fontes diversas em um aplicativo, com extração do links estáticos refentes aos mangás disponibilizados. A motivação inicial para a criação do projeto foi um desafio pessoal de criar um app Windows que fosse capaz de fazer scrapping web.
 
 Hoje, o projeto entrega uma interface gráfica para:
 
