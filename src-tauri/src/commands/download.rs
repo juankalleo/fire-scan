@@ -37,6 +37,71 @@ fn slug_from_url(url: &str, fallback: &str) -> String {
     }
 }
 
+fn normalize_download_url(url: &str) -> String {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+
+    let low = trimmed.to_lowercase();
+
+    if low.contains("mangalivre") {
+        if let Some(idx) = low.find("/capitulo-") {
+            return format!("{}/", trimmed[..idx].trim_end_matches('/'));
+        }
+    }
+
+    if low.contains("niadd") {
+        if let Some(idx) = low.find("/manga/") {
+            let prefix = &trimmed[..idx + "/manga/".len()];
+            let suffix = &trimmed[idx + "/manga/".len()..];
+
+            let suffix_no_q = suffix
+                .split('?')
+                .next()
+                .unwrap_or(suffix)
+                .split('#')
+                .next()
+                .unwrap_or(suffix);
+
+            let low_suffix = suffix_no_q.to_lowercase();
+            if let Some(html_idx) = low_suffix.find(".html") {
+                return format!("{}{}", prefix, &suffix_no_q[..html_idx + 5]);
+            }
+
+            for marker in ["/chapter", "/capitulo", "/ch-", "/ch_"] {
+                if let Some(m_idx) = low_suffix.find(marker) {
+                    return format!("{}{}", prefix, &suffix_no_q[..m_idx].trim_end_matches('/'));
+                }
+            }
+
+            if let Some(seg_end) = suffix_no_q.find('/') {
+                return format!("{}{}", prefix, &suffix_no_q[..seg_end]);
+            }
+        }
+    }
+
+    trimmed.to_string()
+}
+
+fn is_placeholder_title(title: &str) -> bool {
+    let normalized = title
+        .trim()
+        .to_lowercase()
+        .replace(['_', '-', ' '], "");
+    normalized.is_empty()
+        || normalized == "manualdownload"
+        || normalized == "manualdonwload"
+        || normalized == "unknown"
+}
+
+fn title_from_folder(path: &std::path::Path) -> String {
+    path.file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("Manual Download")
+        .replace('_', " ")
+}
+
 fn has_recent_download_content(path: &std::path::Path, since: SystemTime) -> bool {
     if let Ok(entries) = std::fs::read_dir(path) {
         for e in entries.flatten() {
@@ -297,6 +362,11 @@ pub async fn start_download(
     state: tauri::State<'_, tokio::sync::Mutex<AppState>>,
 ) -> Result<serde_json::Value, String> {
     log::info!("Manual download requested: url='{}' chapters='{}' format='{}'", url, chapters, format);
+    let normalized_format = format.trim().to_ascii_lowercase();
+    let normalized_url = normalize_download_url(&url);
+    if normalized_url != url {
+        log::info!("Download URL normalized from '{}' to '{}'", url, normalized_url);
+    }
 
     let jar = match find_kotatsu_jar() {
         Some(p) => p,
@@ -321,7 +391,8 @@ pub async fn start_download(
     let dest_clone = dest.clone();
     let download_id_clone = download_id.clone();
     let pool_clone = pool.clone();
-    let library_path_clone = library_path.clone();
+    let _library_path_clone = library_path.clone();
+    let url_for_task = normalized_url.clone();
 
     // capture start time to find newly created files
     let start_time = SystemTime::now();
@@ -334,6 +405,7 @@ pub async fn start_download(
 
     // Spawn background task to run kotatsu jar and stream output for progress updates
     tokio::spawn(async move {
+        let url = url_for_task;
         log::info!("Starting kotatsu subprocess: {:?}", jar);
 
         // Build a per-manga dest folder so kotatsu writes into a dedicated folder
@@ -363,7 +435,7 @@ pub async fn start_download(
                             map.insert(download_id_clone.clone(), json!({"status":"running","dest": per_manga_dest.to_string_lossy().to_string(), "progress": 0}));
                         }
                         // call internal downloader implementation
-                        if let Err(e) = internal_download_niadd(&url, &per_manga_dest, &chapters, &format, &download_id_clone, &pool_clone, start_time).await {
+                        if let Err(e) = internal_download_niadd(&url, &per_manga_dest, &chapters, &normalized_format, &download_id_clone, &pool_clone, start_time).await {
                             log::error!("internal niadd download failed: {}", e);
                             let mut map = DOWNLOADS.lock().await;
                             map.insert(download_id_clone.clone(), json!({"status":"error","error": e.to_string()}));
@@ -376,7 +448,7 @@ pub async fn start_download(
                             let mut map = DOWNLOADS.lock().await;
                             map.insert(download_id_clone.clone(), json!({"status":"running","dest": per_manga_dest.to_string_lossy().to_string(), "progress": 0}));
                         }
-                        if let Err(e) = internal_download_mangalivre(&url, &per_manga_dest, &chapters, &format, &download_id_clone, &pool_clone, start_time).await {
+                        if let Err(e) = internal_download_mangalivre(&url, &per_manga_dest, &chapters, &normalized_format, &download_id_clone, &pool_clone, start_time).await {
                             log::error!("internal mangalivre download failed: {}", e);
                             let mut map = DOWNLOADS.lock().await;
                             map.insert(download_id_clone.clone(), json!({"status":"error","error": e.to_string()}));
@@ -392,7 +464,7 @@ pub async fn start_download(
             "--dest".to_string(),
             per_manga_dest.to_string_lossy().to_string(),
             "--format".to_string(),
-            format.clone(),
+            normalized_format.clone(),
             "--chapters".to_string(),
             chapters.clone(),
             url.clone(),
@@ -511,9 +583,9 @@ pub async fn start_download(
                                     no_recent_output
                                 );
                                 let fallback_result = if url_l.contains("mangalivre") {
-                                    internal_download_mangalivre(&url, &per_manga_dest, &chapters, &format, &download_id_clone, &pool_clone, start_time).await
+                                    internal_download_mangalivre(&url, &per_manga_dest, &chapters, &normalized_format, &download_id_clone, &pool_clone, start_time).await
                                 } else {
-                                    internal_download_niadd(&url, &per_manga_dest, &chapters, &format, &download_id_clone, &pool_clone, start_time).await
+                                    internal_download_niadd(&url, &per_manga_dest, &chapters, &normalized_format, &download_id_clone, &pool_clone, start_time).await
                                 };
 
                                 match fallback_result {
@@ -553,7 +625,18 @@ pub async fn start_download(
                                 let root_index = per_manga_dest.join("index.json");
                                 if root_index.exists() {
                                     match LibraryService::parse_manga_from_index(&root_index).await {
-                                        Ok(manga) => {
+                                        Ok(mut manga) => {
+                                            if is_placeholder_title(&manga.title) {
+                                                manga.title = title_from_folder(&per_manga_dest);
+                                            }
+                                            if manga.cover_path.is_none() {
+                                                manga.cover_path = find_cover_in_downloaded_tree(&per_manga_dest);
+                                            }
+                                            if manga.total_chapters <= 0 || manga.downloaded_chapters <= 0 {
+                                                let chapter_count = count_downloaded_chapters_in_tree(&per_manga_dest);
+                                                manga.total_chapters = chapter_count;
+                                                manga.downloaded_chapters = chapter_count;
+                                            }
                                             if let Err(err) = MangaRepository::upsert_manga(pool_actual, &manga).await {
                                                 log::error!("Failed to upsert manga from root index: {}", err);
                                             } else {
@@ -581,7 +664,7 @@ pub async fn start_download(
                                     );
                                     let manga = crate::library::library_service::Manga {
                                         id: stable_id,
-                                        title: title.clone(),
+                                        title,
                                         source_id: "manual".to_string(),
                                         source_name: "Manual".to_string(),
                                         cover_path,
@@ -744,11 +827,7 @@ pub async fn list_downloaded_items() -> Result<serde_json::Value, String> {
         let row_title = r.get::<String, _>("title");
         let row_cover = r.get::<Option<String>, _>("cover_path");
 
-        let fallback_title = std::path::Path::new(&local_path)
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or("Manual Download")
-            .replace('_', " ");
+        let fallback_title = title_from_folder(std::path::Path::new(&local_path));
 
         let entry = by_local.entry(local_path.clone()).or_insert_with(|| {
             json!({
@@ -763,7 +842,7 @@ pub async fn list_downloaded_items() -> Result<serde_json::Value, String> {
             let has_title = obj
                 .get("title")
                 .and_then(|v| v.as_str())
-                .map(|s| !s.trim().is_empty() && s != "Manual Download")
+                .map(|s| !is_placeholder_title(s))
                 .unwrap_or(false);
 
             if !has_title && !row_title.trim().is_empty() {
@@ -842,9 +921,10 @@ async fn internal_download_niadd(
     format: &str,
     download_id: &str,
     pool_opt: &Option<sqlx::SqlitePool>,
-    start_time: SystemTime,
+    _start_time: SystemTime,
 ) -> Result<(), anyhow::Error> {
     log::info!("Internal Niadd downloader started for {}", url);
+    let normalized_format = format.trim().to_ascii_lowercase();
 
     let client = reqwest::Client::builder()
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
@@ -906,141 +986,209 @@ async fn internal_download_niadd(
         }
     }
 
-    // Pick first requested chapter only (simple implementation) and compute chapter index
-    let (chapter_url, chapter_index): (String, usize) = if chapters.trim().is_empty() || chapters.trim() == "all" {
-        (abs_links.first().cloned().ok_or_else(|| anyhow::anyhow!("No chapters available"))?, 1usize)
-    } else {
-        // Try parse a single number like "1" or a range "1-3" -> take first
-        let first_token = chapters.split(&[',',';'][..]).next().unwrap_or(chapters).trim();
-        if let Some(idx_dash) = first_token.find('-') {
-            let n = first_token[..idx_dash].trim().parse::<usize>().unwrap_or(1);
-            let url = abs_links.get(n.saturating_sub(1)).cloned().unwrap_or_else(|| abs_links[0].clone());
-            (url, n)
-        } else if let Ok(n) = first_token.parse::<usize>() {
-            let url = abs_links.get(n.saturating_sub(1)).cloned().unwrap_or_else(|| abs_links[0].clone());
-            (url, n)
-        } else {
-            (abs_links[0].clone(), 1usize)
-        }
-    };
+    let selected = parse_requested_chapters(chapters, abs_links.len());
+    if selected.is_empty() {
+        return Err(anyhow::anyhow!("No chapters selected from requested range"));
+    }
 
-    log::info!("Niadd: selected chapter URL {} (index {})", chapter_url, chapter_index);
+    let total_chapters = selected.len().max(1);
+    let mut total_saved_pages: usize = 0;
+    let mut total_chapters_with_pages: usize = 0;
+    for (sel_idx, chapter_idx) in selected.iter().enumerate() {
+        let chapter_url = abs_links
+            .get(chapter_idx.saturating_sub(1))
+            .cloned()
+            .unwrap_or_else(|| abs_links[0].clone());
+        let (chapter_display, chapter_file_label) = chapter_label_from_url(&chapter_url)
+            .unwrap_or_else(|| (chapter_idx.to_string(), chapter_idx.to_string()));
 
-    // Fetch chapter page
-    let ch_resp = client.get(&chapter_url).send().await?;
-    let ch_html = ch_resp.text().await?;
-    // Parse chapter HTML and extract image URLs in a tight scope so the
-    // `scraper::Html` value doesn't live across async awaits.
-    let mut images: Vec<String> = {
-        let ch_doc = scraper::Html::parse_document(&ch_html);
-        let img_selectors = vec!["img.page-img", "img#image", "div.reading-content img", "img"];
-        let mut images: Vec<String> = Vec::new();
-        for s in img_selectors {
-            if let Ok(sel) = scraper::Selector::parse(s) {
-                for el in ch_doc.select(&sel) {
-                    if let Some(src) = el.value().attr("data-src").or_else(|| el.value().attr("src")) {
-                        images.push(src.to_string());
+        log::info!(
+            "Niadd downloading chapter {} (requested index {}) -> {}",
+            chapter_display,
+            chapter_idx,
+            chapter_url
+        );
+
+        let ch_resp = client.get(&chapter_url).send().await?;
+        let ch_html = ch_resp.text().await?;
+        // Parse chapter HTML and extract image URLs in a tight scope so the
+        // `scraper::Html` value doesn't live across async awaits.
+        let mut images: Vec<String> = {
+            let ch_doc = scraper::Html::parse_document(&ch_html);
+            let img_selectors = vec!["img.page-img", "img#image", "div.reading-content img", "img"];
+            let mut images: Vec<String> = Vec::new();
+            for s in img_selectors {
+                if let Ok(sel) = scraper::Selector::parse(s) {
+                    for el in ch_doc.select(&sel) {
+                        if let Some(src) = el.value().attr("data-src").or_else(|| el.value().attr("src")) {
+                            images.push(src.to_string());
+                        }
+                    }
+                    if !images.is_empty() {
+                        break;
                     }
                 }
-                if !images.is_empty() { break; }
             }
+            images
+        };
+
+        if images.is_empty() {
+            log::warn!("Niadd chapter {} has no image candidates", chapter_display);
+            continue;
         }
-        images
-    };
 
-    if images.is_empty() {
-        return Err(anyhow::anyhow!("No images found in chapter page"));
-    }
+        // Filter images to likely page images (extensions and avoid brand/logo assets)
+        let original_images = images.clone();
+        images = images
+            .into_iter()
+            .filter(|u| {
+                let low = u.to_lowercase();
+                (low.ends_with(".jpg")
+                    || low.ends_with(".jpeg")
+                    || low.ends_with(".png")
+                    || low.ends_with(".webp")
+                    || low.contains(".jpg?")
+                    || low.contains(".png?")
+                    || low.contains(".webp?"))
+                    && !low.contains("brand")
+                    && !low.contains("logo")
+                    && !low.contains("avatar")
+                    && !low.contains("favicon")
+            })
+            .collect();
+        if images.is_empty() {
+            // if filtering removed everything, fall back to original list
+            images = original_images;
+        }
 
-    // Filter images to likely page images (extensions and avoid brand/logo assets)
-    let original_images = images.clone();
-    images = images.into_iter().filter(|u| {
-        let low = u.to_lowercase();
-        (low.ends_with(".jpg") || low.ends_with(".jpeg") || low.ends_with(".png") || low.ends_with(".webp"))
-            && !low.contains("brand") && !low.contains("logo") && !low.contains("avatar") && !low.contains("favicon")
-    }).collect();
-    if images.is_empty() {
-        // if filtering removed everything, fall back to original list
-        images = original_images;
-    }
+        log::info!(
+            "Niadd chapter {}: {} image candidates",
+            chapter_display,
+            images.len()
+        );
 
-    log::info!("Niadd: found {} image candidates", images.len());
+        let chapter_dir = per_manga_dest.join(format!("chapter_{}", chapter_file_label));
+        fs::create_dir_all(&chapter_dir).await?;
+        let mut chapter_saved_pages: usize = 0;
+        for (i, img_url) in images.iter().enumerate() {
+            let img_abs = if let Ok(u) = Url::parse(img_url) {
+                u.to_string()
+            } else if let Ok(u) = base.join(img_url) {
+                u.to_string()
+            } else {
+                continue;
+            };
 
-    // Download images sequentially and save (resilient to single-image failures)
-    let chapter_dir = per_manga_dest.join(format!("chapter_{}", chapter_index));
-    fs::create_dir_all(&chapter_dir).await?;
-    let total = images.len();
-    let mut success_count: usize = 0;
-    for (i, img_url) in images.iter().enumerate() {
-        let img_abs = if let Ok(u) = Url::parse(img_url) { u.to_string() } else { base.join(img_url)?.to_string() };
-        log::info!("Downloading image {}", img_abs);
-        let filename = format!("{:03}.jpg", i+1);
-        let path = chapter_dir.join(&filename);
+            let ext = if img_abs.to_lowercase().contains(".webp") {
+                "webp"
+            } else if img_abs.to_lowercase().contains(".png") {
+                "png"
+            } else {
+                "jpg"
+            };
+            let filename = format!("{:03}.{}", i + 1, ext);
+            let path = chapter_dir.join(&filename);
 
-        match client.get(&img_abs).send().await {
-            Ok(resp) => match resp.bytes().await {
-                Ok(b) => {
-                    if let Err(e) = fs::write(&path, &b).await {
-                        log::warn!("Failed to write image {}: {}", path.display(), e);
-                    } else {
-                        success_count += 1;
+            match client.get(&img_abs).send().await {
+                Ok(resp) => match resp.bytes().await {
+                    Ok(b) => {
+                        if let Err(e) = fs::write(&path, &b).await {
+                            log::warn!("Failed to write image {}: {}", path.display(), e);
+                        } else {
+                            chapter_saved_pages += 1;
+                            total_saved_pages += 1;
+                        }
                     }
-                }
+                    Err(e) => {
+                        log::warn!("Failed to read bytes for {}: {}", img_abs, e);
+                    }
+                },
                 Err(e) => {
-                    log::warn!("Failed to read bytes for {}: {}", img_abs, e);
+                    log::warn!("Failed to download {}: {}", img_abs, e);
                 }
-            },
-            Err(e) => {
-                log::warn!("Failed to download {}: {}", img_abs, e);
+            }
+
+            let chapter_pct = ((i + 1) * 100 / images.len()) as u32;
+            let global_pct = ((sel_idx as u32) * 100 / total_chapters as u32)
+                + (chapter_pct / total_chapters as u32);
+            let mut map = DOWNLOADS.lock().await;
+            if let Some(entry) = map.get_mut(download_id) {
+                let mut obj = entry.as_object_mut().cloned().unwrap_or_default();
+                obj.insert(
+                    "last_stdout".to_string(),
+                    serde_json::Value::String(format!(
+                        "Chapter {} page {}",
+                        chapter_display,
+                        i + 1
+                    )),
+                );
+                obj.insert(
+                    "progress".to_string(),
+                    serde_json::Value::Number(serde_json::Number::from(global_pct.min(99))),
+                );
+                obj.insert(
+                    "downloaded".to_string(),
+                    serde_json::Value::Number(serde_json::Number::from(total_saved_pages as u64)),
+                );
+                *entry = serde_json::Value::Object(obj);
             }
         }
 
-        // update progress even on failures
-        let mut map = DOWNLOADS.lock().await;
-        if let Some(mut entry) = map.get_mut(download_id) {
-            let mut obj = entry.as_object_mut().cloned().unwrap_or_default();
-            let pct = ((i+1) * 100 / total) as u8;
-            obj.insert("last_stdout".to_string(), serde_json::Value::String(format!("Attempted {}", filename)));
-            obj.insert("progress".to_string(), serde_json::Value::Number(serde_json::Number::from(pct)));
-            obj.insert("downloaded".to_string(), serde_json::Value::Number(serde_json::Number::from(success_count as u64)));
-            *entry = serde_json::Value::Object(obj);
+        if chapter_saved_pages == 0 {
+            log::warn!(
+                "Niadd chapter {} had image candidates but no pages were saved",
+                chapter_display
+            );
+            continue;
+        }
+
+        total_chapters_with_pages += 1;
+        log::info!(
+            "Niadd chapter {} saved {} pages",
+            chapter_display,
+            chapter_saved_pages
+        );
+
+        if normalized_format == "cbz" {
+            let cbz_path = per_manga_dest.join(format!("chapter_{}.cbz", chapter_file_label));
+            let chapter_dir2 = chapter_dir.clone();
+            let cbz_path_for_task = cbz_path.clone();
+            log::info!("Niadd: creating CBZ at {}", cbz_path.to_string_lossy());
+            // spawn blocking for zip creation
+            let zip_result = tokio::task::spawn_blocking(move || -> Result<(), anyhow::Error> {
+                let file = std::fs::File::create(&cbz_path_for_task)?;
+                let mut zip = zip::ZipWriter::new(file);
+                let options = FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+                for entry in std::fs::read_dir(&chapter_dir2)? {
+                    let e = entry?;
+                    if e.path().is_file() {
+                        let name = e.file_name().into_string().unwrap_or_else(|_| "img".to_string());
+                        zip.start_file(name, options)?;
+                        let mut f = std::fs::File::open(e.path())?;
+                        let mut buf = Vec::new();
+                        use std::io::Read;
+                        f.read_to_end(&mut buf)?;
+                        zip.write_all(&buf)?;
+                    }
+                }
+                zip.finish()?;
+                Ok(())
+            })
+            .await;
+
+            match zip_result {
+                Ok(Ok(())) => log::info!("Niadd: CBZ creation completed: {}", cbz_path.to_string_lossy()),
+                Ok(Err(e)) => log::error!("Niadd: CBZ creation failed: {}", e),
+                Err(e) => log::error!("Niadd: CBZ creation task panicked or was cancelled: {}", e),
+            }
         }
     }
 
-    log::info!("Niadd: downloaded {}/{} images", success_count, total);
-
-    // If format == cbz, create zip
-    if format == "cbz" {
-        let cbz_path = per_manga_dest.join(format!("chapter_{}.cbz", chapter_index));
-        let chapter_dir2 = chapter_dir.clone();
-        let cbz_path_for_task = cbz_path.clone();
-        log::info!("Niadd: creating CBZ at {}", cbz_path.to_string_lossy());
-        // spawn blocking for zip creation
-        let zip_result = tokio::task::spawn_blocking(move || -> Result<(), anyhow::Error> {
-            let file = std::fs::File::create(&cbz_path_for_task)?;
-            let mut zip = zip::ZipWriter::new(file);
-            let options = FileOptions::default().compression_method(zip::CompressionMethod::Stored);
-            for entry in std::fs::read_dir(&chapter_dir2)? {
-                let e = entry?;
-                if e.path().is_file() {
-                    let name = e.file_name().into_string().unwrap_or_else(|_| "img".to_string());
-                    zip.start_file(name, options)?;
-                    let mut f = std::fs::File::open(e.path())?;
-                    let mut buf = Vec::new();
-                    use std::io::Read;
-                    f.read_to_end(&mut buf)?;
-                    zip.write_all(&buf)?;
-                }
-            }
-            zip.finish()?;
-            Ok(())
-        }).await;
-
-        match zip_result {
-            Ok(Ok(())) => log::info!("Niadd: CBZ creation completed: {}", cbz_path.to_string_lossy()),
-            Ok(Err(e)) => log::error!("Niadd: CBZ creation failed: {}", e),
-            Err(e) => log::error!("Niadd: CBZ creation task panicked or was cancelled: {}", e),
-        }
+    if total_saved_pages == 0 {
+        return Err(anyhow::anyhow!(
+            "No pages were downloaded from Niadd ({} selected chapters)",
+            selected.len()
+        ));
     }
 
     // mark completed
@@ -1053,9 +1201,7 @@ async fn internal_download_niadd(
         obj.insert("dest".to_string(), serde_json::Value::String(per_manga_dest.to_string_lossy().to_string()));
 
         // Try to infer a title from folder name
-        if let Some(name) = per_manga_dest.file_name().and_then(|s| s.to_str()) {
-            obj.insert("title".to_string(), serde_json::Value::String(name.to_string()));
-        }
+        obj.insert("title".to_string(), serde_json::Value::String(title_from_folder(per_manga_dest)));
 
         // Find a cover image if available (common names or first page image)
         let mut cover_path: Option<String> = None;
@@ -1111,9 +1257,14 @@ async fn internal_download_niadd(
         log::warn!("Niadd: download id {} not found in DOWNLOADS map when trying to mark completed", download_id);
     }
 
+    let mut cover_path = find_cover_in_downloaded_tree(per_manga_dest);
+    if cover_path.is_none() {
+        let title_hint = title_from_folder(per_manga_dest);
+        cover_path = try_fetch_cover_by_title_to_local(&title_hint, per_manga_dest).await;
+    }
+
     // Optionally upsert into DB
     if let Some(pool_actual) = pool_opt {
-        // write a placeholder Manga entry
         let stable_id = format!(
             "manual_{}",
             per_manga_dest
@@ -1123,17 +1274,17 @@ async fn internal_download_niadd(
         );
         let manga = crate::library::library_service::Manga {
             id: stable_id,
-            title: "Manual Download".to_string(),
+            title: title_from_folder(per_manga_dest),
             source_id: "manual".to_string(),
             source_name: "Manual".to_string(),
-            cover_path: None,
+            cover_path,
             synopsis: None,
             status: "unknown".to_string(),
             rating: 0.0,
             language: "Português".to_string(),
             local_path: per_manga_dest.to_string_lossy().to_string(),
-            total_chapters: 0,
-            downloaded_chapters: 0,
+            total_chapters: total_chapters_with_pages as i32,
+            downloaded_chapters: total_chapters_with_pages as i32,
             last_updated: chrono::Local::now().to_rfc3339(),
         };
         if let Err(e) = MangaRepository::upsert_manga(pool_actual, &manga).await {
@@ -1402,6 +1553,7 @@ async fn internal_download_mangalivre(
     _start_time: SystemTime,
 ) -> Result<(), anyhow::Error> {
     log::info!("Internal MangaLivre downloader started for {}", url);
+    let normalized_format = format.trim().to_ascii_lowercase();
 
     let client = reqwest::Client::builder()
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
@@ -1700,7 +1852,7 @@ async fn internal_download_mangalivre(
             );
         }
 
-        if format == "cbz" && chapter_saved_pages > 0 {
+        if normalized_format == "cbz" && chapter_saved_pages > 0 {
             let chapter_dir2 = chapter_dir.clone();
             let cbz_path = per_manga_dest.join(format!("chapter_{}.cbz", chapter_file_label));
             let cbz_path_for_task = cbz_path.clone();
@@ -1742,11 +1894,7 @@ async fn internal_download_mangalivre(
 
     let mut cover_path = find_cover_in_downloaded_tree(per_manga_dest);
     if cover_path.is_none() {
-        let title_hint = per_manga_dest
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or("Manual Download")
-            .replace('_', " ");
+        let title_hint = title_from_folder(per_manga_dest);
         cover_path = try_fetch_cover_by_title_to_local(&title_hint, per_manga_dest).await;
         if cover_path.is_some() {
             log::info!("Manual MangaLivre cover fetched from web for '{}'", title_hint);
@@ -1762,9 +1910,7 @@ async fn internal_download_mangalivre(
             "dest".to_string(),
             serde_json::Value::String(per_manga_dest.to_string_lossy().to_string()),
         );
-        if let Some(name) = per_manga_dest.file_name().and_then(|s| s.to_str()) {
-            obj.insert("title".to_string(), serde_json::Value::String(name.to_string()));
-        }
+        obj.insert("title".to_string(), serde_json::Value::String(title_from_folder(per_manga_dest)));
         if let Some(cp) = &cover_path {
             obj.insert("coverPath".to_string(), serde_json::Value::String(cp.clone()));
         }
@@ -1781,11 +1927,7 @@ async fn internal_download_mangalivre(
         );
         let manga = crate::library::library_service::Manga {
             id: stable_id,
-            title: per_manga_dest
-                .file_name()
-                .and_then(|s| s.to_str())
-                .unwrap_or("Manual Download")
-                .to_string(),
+            title: title_from_folder(per_manga_dest),
             source_id: "manual".to_string(),
             source_name: "Manual".to_string(),
             cover_path: cover_path.clone(),
@@ -1794,8 +1936,8 @@ async fn internal_download_mangalivre(
             rating: 0.0,
             language: "Português".to_string(),
             local_path: per_manga_dest.to_string_lossy().to_string(),
-            total_chapters: 0,
-            downloaded_chapters: 0,
+            total_chapters: total_chapters_with_pages as i32,
+            downloaded_chapters: total_chapters_with_pages as i32,
             last_updated: chrono::Local::now().to_rfc3339(),
         };
         let _ = MangaRepository::upsert_manga(pool_actual, &manga).await;
